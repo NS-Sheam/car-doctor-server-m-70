@@ -23,18 +23,18 @@ const client = new MongoClient(uri, {
 });
 
 // verify jwt token function 
-const verifyJWT = (req, res, next) =>{
+const verifyJWT = (req, res, next) => {
   console.log("hitting verify JWT");
   console.log(req.headers.authorization);
   const authorization = req.headers.authorization;
   if (!authorization) {
-    return res.status(401).send({error: true, message: "unauthorized access"})
+    return res.status(401).send({ error: true, message: "unauthorized access" })
   }
   const token = authorization.split(' ')[1];
   console.log("token inside jwt", token);
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
-    if(error){
-      return res.status(401).send({error: true, message: "unauthorized access"})
+    if (error) {
+      return res.status(401).send({ error: true, message: "unauthorized access" })
     }
     req.decoded = decoded;
     next();
@@ -49,19 +49,30 @@ async function run() {
     const bookingCollection = client.db("carDoctor").collection("bookings");
 
     // jwt 
-    app.post("/jwt", (req, res) =>{
+    app.post("/jwt", (req, res) => {
       const user = req.body;
       console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "1h"
       })
       // console.log(token);
-      res.send({token});
+      res.send({ token });
     })
-    
+
     // services routes 
     app.get("/services", async (req, res) => {
-      const cursor = serviceCollection.find();
+      const sort = req.query.sort;
+      const search = req.query.search;
+      // console.log(search);
+      // console.log(sort);
+      // const query = {};
+      const query = {title: {$regex: search, $options: "i"}}
+      const options = {
+        sort: {
+          "price": sort === "asc" ? 1 : -1
+        }
+      }
+      const cursor = serviceCollection.find(query, options);
       const result = await cursor.toArray();
       res.send(result);
     })
@@ -85,7 +96,7 @@ async function run() {
       const decoded = req.decoded;
       console.log("came back after verify JWT", decoded);
       if (decoded.email !== req.query.email) {
-        return res.status(403).send({error: 1, message: "forbidden access"})
+        return res.status(403).send({ error: 1, message: "forbidden access" })
       }
       // console.log(req.headers.authorization);
       let query = {};
